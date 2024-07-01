@@ -397,10 +397,9 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                     b1Hglt = false;
                     b2Hglt = false;
                     b3Hglt = false;
-                    SetCursor(mainCursor);
-                    return true;
                 }
-
+                SetCursor(mainCursor);
+                return true;
             }
         }
         else
@@ -816,8 +815,8 @@ void CreateResources()
         }
     }
 
-    D2D1_RECT_F topR = { scr_width / 2 - 100.0f,-50.0f,scr_width,50.0f };
-    D2D1_RECT_F bottomR = { scr_width / 2 - 50.0f,scr_height + 50.0f,scr_width,scr_height + 150.0f };
+    D2D1_RECT_F topR = { scr_width / 2 - 200.0f,-50.0f,scr_width,50.0f };
+    D2D1_RECT_F bottomR = { scr_width / 2 - 150.0f,scr_height + 50.0f,scr_width,scr_height + 150.0f };
     bool top_ok = false;
     bool bottom_ok = false;
 
