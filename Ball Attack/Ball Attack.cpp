@@ -70,6 +70,7 @@ int mins = 0;
 int secs = 0;
 int score = 0;
 int lifes = 100;
+int intruders = 0;
 
 wchar_t current_player[16] = L"THE WARRIOR";
 
@@ -231,6 +232,7 @@ void InitGame()
     score = 0;
     mins = 0;
     secs = 0;
+    intruders = 2 + level;
 
     if (Catapult)
     {
@@ -883,7 +885,26 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
         ///////////////////////////////////////////////////////
 
+        //EVILS ************************
 
+        if (intruders > 0)
+        {
+            if (rand() % 300 == 66)
+            {
+                if (rand() % 2 == 0)
+                    vEnemies.push_back(dll::Factory(types::ball, (float)(rand() % (int)(scr_width - 80)), 60.0f));
+                else
+                    vEnemies.push_back(dll::Factory(types::egg, (float)(rand() % (int)(scr_width - 80)), 60.0f));
+                intruders--;
+            }
+        }
+        if (!vEnemies.empty())
+        {
+            for (std::vector<dll::Object>::iterator evil = vEnemies.begin(); evil < vEnemies.end(); evil++)
+            {
+                (*evil)->Move((float)(level));
+            }
+        }
 
 
 
@@ -917,8 +938,103 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
 
         Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height - 100.0f));
+        //////////////////////////////////////////////////////////
+
+        //EVILS ***************************************
+
+        for (std::vector<dll::Object>::iterator evil = vEnemies.begin(); evil < vEnemies.end(); evil++)
+        {
+            switch ((*evil)->GetType())
+            {
+            case types::egg:
+                if ((*evil)->size == sizes::big)
+                {
+                    if ((*evil)->color == colors::blue)
+                        Draw->DrawBitmap(bmpBlueEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::red)
+                        Draw->DrawBitmap(bmpRedEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::yellow)
+                        Draw->DrawBitmap(bmpYellowEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::green)
+                        Draw->DrawBitmap(bmpGreenEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::purple)
+                        Draw->DrawBitmap(bmpPurpleEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                }
+                else if ((*evil)->size == sizes::middle)
+                {
+                    if ((*evil)->color == colors::blue)
+                        Draw->DrawBitmap(bmpMidBlueEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::red)
+                        Draw->DrawBitmap(bmpMidRedEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::yellow)
+                        Draw->DrawBitmap(bmpMidYellowEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::green)
+                        Draw->DrawBitmap(bmpMidGreenEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::purple)
+                        Draw->DrawBitmap(bmpMidPurpleEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                }
+                else if ((*evil)->size == sizes::small_ball)
+                {
+                    if ((*evil)->color == colors::blue)
+                        Draw->DrawBitmap(bmpSmallBlueEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::red)
+                        Draw->DrawBitmap(bmpSmallRedEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::yellow)
+                        Draw->DrawBitmap(bmpSmallYellowEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::green)
+                        Draw->DrawBitmap(bmpSmallGreenEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::purple)
+                        Draw->DrawBitmap(bmpSmallPurpleEgg, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                }
+                break;
+
+            case types::ball:
+                if ((*evil)->size == sizes::big)
+                {
+                    if ((*evil)->color == colors::blue)
+                        Draw->DrawBitmap(bmpBlueBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::red)
+                        Draw->DrawBitmap(bmpRedBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::yellow)
+                        Draw->DrawBitmap(bmpYellowBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::green)
+                        Draw->DrawBitmap(bmpGreenBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::purple)
+                        Draw->DrawBitmap(bmpPurpleBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                }
+                else if ((*evil)->size == sizes::middle)
+                {
+                    if ((*evil)->color == colors::blue)
+                        Draw->DrawBitmap(bmpMidBlueBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::red)
+                        Draw->DrawBitmap(bmpMidRedBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::yellow)
+                        Draw->DrawBitmap(bmpMidYellowBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::green)
+                        Draw->DrawBitmap(bmpMidGreenBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::purple)
+                        Draw->DrawBitmap(bmpMidPurpleBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                }
+                else if ((*evil)->size == sizes::small_ball)
+                {
+                    if ((*evil)->color == colors::blue)
+                        Draw->DrawBitmap(bmpSmallBlueBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::red)
+                        Draw->DrawBitmap(bmpSmallRedBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::yellow)
+                        Draw->DrawBitmap(bmpSmallYellowBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::green)
+                        Draw->DrawBitmap(bmpSmallGreenBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                    if ((*evil)->color == colors::purple)
+                        Draw->DrawBitmap(bmpSmallPurpleBall, D2D1::RectF((*evil)->x, (*evil)->y, (*evil)->ex, (*evil)->ey));
+                }
+                break;
+            }
+        }
 
 
+
+        /////////////////////////////////////////////////////////////
         Draw->EndDraw();
 
     }
