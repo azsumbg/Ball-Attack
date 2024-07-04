@@ -64,6 +64,7 @@ bool name_set = false;
 bool b1Hglt = false;
 bool b2Hglt = false;
 bool b3Hglt = false;
+bool now_shooting = false;
 
 int level = 1;
 int mins = 0;
@@ -71,6 +72,9 @@ int secs = 0;
 int score = 0;
 int lifes = 100;
 int intruders = 0;
+
+float target_x = 0;
+float target_y = 0;
 
 wchar_t current_player[16] = L"THE WARRIOR";
 
@@ -134,7 +138,8 @@ ID2D1Bitmap* bmpCatapultR[3] = { nullptr };
 ///////////////////////////////////////////////////////////////////
 
 dll::Object Catapult = nullptr;
-std::vector < dll::Object> vEnemies;
+std::vector<dll::Object> vEnemies;
+std::vector<dll::Object> vAxes;
 
 ///////////////////////////////////////////////////////////////////
 
@@ -245,6 +250,14 @@ void InitGame()
             vEnemies[i]->Release();
     }
     vEnemies.clear();
+    if (!vAxes.empty())
+    {
+        for (int i = 0; i < vAxes.size(); i++)
+            vAxes[i]->Release();
+    }
+    vAxes.clear();
+
+    Catapult = dll::Factory(types::catapult, scr_width / 2 - 100.0f, scr_height - 185.0f);
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -455,6 +468,33 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             break;
 
 
+        }
+        break;
+
+    case WM_LBUTTONDOWN:
+        if (!now_shooting)
+        {
+            now_shooting = true;
+            target_x = LOWORD(lParam);
+            target_y = HIWORD(lParam);
+        }
+        break;
+
+    case WM_KEYDOWN:
+        if (Catapult)
+        {
+            if (wParam == VK_LEFT)
+            {
+                Catapult->SetDir(dirs::left);
+                Catapult->Move((float)(level));
+                break;
+            }
+            if (wParam == VK_RIGHT)
+            {
+                Catapult->SetDir(dirs::right);
+                Catapult->Move((float)(level));
+                break;
+            }
         }
         break;
 
@@ -905,7 +945,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        //AXES ************************
 
+        if (!vAxes.empty())
+        {
+            for (std::vector<dll::Object>::iterator axe = vAxes.begin(); axe < vAxes.end(); axe++)
+            {
+                (*axe)->Move((float)(level));
+                if ((*axe)->x >= scr_width || (*axe)->x <= 0 || (*axe)->y >= scr_height - 100.0f || (*axe)->y <= 50.0f)
+                {
+                    (*axe)->Release();
+                    vAxes.erase(axe);
+                    break;
+                }
+            }
+        }
 
 
 
@@ -939,8 +993,65 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height - 100.0f));
         //////////////////////////////////////////////////////////
 
-        //EVILS ***************************************
+        // CATAPULT & EVILS ***************************************
 
+        if (Catapult)
+        {
+            switch (Catapult->GetDir())
+            {
+            case dirs::left:
+                if (now_shooting)
+                {
+                    int now_frame = Catapult->GetFrame(false);
+                    Draw->DrawBitmap(bmpCatapultL[now_frame], D2D1::RectF(Catapult->x, Catapult->y, Catapult->ex, Catapult->ey));
+                    if (now_frame >= 2)
+                    {
+                        now_shooting = false;
+                        vAxes.push_back(dll::AxeFactory(Catapult->x, Catapult->ey, target_x, target_y));
+                        Catapult->GetFrame(true);
+                    }
+                    break;
+                }
+                else
+                    Draw->DrawBitmap(bmpCatapultL[0], D2D1::RectF(Catapult->x, Catapult->y, Catapult->ex, Catapult->ey));
+                break;
+
+            case dirs::right:
+                if (now_shooting)
+                {
+                    int now_frame = Catapult->GetFrame(false);
+                    Draw->DrawBitmap(bmpCatapultR[now_frame], D2D1::RectF(Catapult->x + 15.0f, Catapult->y, Catapult->ex, Catapult->ey));
+                    if (now_frame >= 2)
+                    {
+                        now_shooting = false;
+                        vAxes.push_back(dll::AxeFactory(Catapult->ex - 15.0f, Catapult->ey, target_x, target_y));
+                        Catapult->GetFrame(true);
+                    }
+                    break;
+                }
+                else
+                    Draw->DrawBitmap(bmpCatapultR[0], D2D1::RectF(Catapult->x, Catapult->y, Catapult->ex, Catapult->ey));
+                break;
+
+            case dirs::stop:
+                if (now_shooting)
+                {
+                    int now_frame = Catapult->GetFrame(false);
+                    Draw->DrawBitmap(bmpCatapultR[now_frame], D2D1::RectF(Catapult->x + 15.0f, Catapult->y, Catapult->ex, Catapult->ey));
+                    if (now_frame >= 2)
+                    {
+                        now_shooting = false;
+                        vAxes.push_back(dll::AxeFactory(Catapult->ex - 15.0f, Catapult->ey, target_x, target_y)); 
+                        Catapult->GetFrame(true);
+                    }
+                    break;
+                }
+                else
+                    Draw->DrawBitmap(bmpCatapultR[0], D2D1::RectF(Catapult->x, Catapult->y, Catapult->ex, Catapult->ey));
+                break;
+            }
+        }
+        
         for (std::vector<dll::Object>::iterator evil = vEnemies.begin(); evil < vEnemies.end(); evil++)
         {
             switch ((*evil)->GetType())
@@ -1031,7 +1142,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-
+        if (!vAxes.empty())
+        {
+            for (std::vector<dll::Object>::iterator axe = vAxes.begin(); axe < vAxes.end(); axe++)
+                Draw->DrawBitmap(bmpAxe, D2D1::RectF((*axe)->x, (*axe)->y, (*axe)->ex, (*axe)->ey));
+        }
 
         /////////////////////////////////////////////////////////////
         Draw->EndDraw();

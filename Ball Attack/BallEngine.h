@@ -208,7 +208,7 @@ namespace dll
 			virtual void Release() = 0;
 			virtual void Move(float _speed) = 0;
 			virtual int Transform(sizes to_what) = 0;
-			virtual int GetFrame() = 0;
+			virtual int GetFrame(bool reset) = 0;
 	};
 
 	typedef ATOM* Atom;
