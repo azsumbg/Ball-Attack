@@ -961,6 +961,150 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vAxes.empty() && !vEnemies.empty())
+        {
+           
+
+            for (std::vector<dll::Object>::iterator evil = vEnemies.begin(); evil < vEnemies.end(); evil++)
+            {
+                bool hurt = false;
+                for (std::vector<dll::Object>::iterator axe = vAxes.begin(); axe < vAxes.end(); axe++)
+                {
+                    if (!((*axe)->x >= (*evil)->ex || (*axe)->ex <= (*evil)->x
+                        || (*axe)->y >= (*evil)->ey || (*axe)->ey <= (*evil)->y))
+                    {
+                        score += 10 * level;
+                        
+                        dirs new_evil_dir1 = (*evil)->GetDir();
+                        dirs new_evil_dir2 = (*evil)->GetDir();
+                        dirs new_evil_dir3 = (*evil)->GetDir();
+
+                        switch (new_evil_dir1)
+                        {
+                        case dirs::up:
+                            new_evil_dir1 = dirs::down;
+                            new_evil_dir2 = dirs::down_left;
+                            new_evil_dir3 = dirs::down_right;
+                            break;
+
+                        case dirs::down:
+                            new_evil_dir1 = dirs::up;
+                            new_evil_dir2 = dirs::up_left;
+                            new_evil_dir3 = dirs::up_right;
+                            break;
+
+                        case dirs::left:
+                            new_evil_dir1 = dirs::right;
+                            new_evil_dir2 = dirs::up_right;
+                            new_evil_dir3 = dirs::down_right;
+                            break;
+
+                        case dirs::down_left:
+                            new_evil_dir1 = dirs::up_right;
+                            new_evil_dir2 = dirs::up;
+                            new_evil_dir3 = dirs::down_right;
+                            break;
+
+                        case dirs::down_right:
+                            new_evil_dir1 = dirs::up_left;
+                            new_evil_dir2 = dirs::up;
+                            new_evil_dir3 = dirs::down_left;
+                            break;
+
+                        case dirs::up_left:
+                            new_evil_dir1 = dirs::down_right;
+                            new_evil_dir2 = dirs::up_right;
+                            new_evil_dir3 = dirs::left;
+                            break;
+
+                        case dirs::up_right:
+                            new_evil_dir1 = dirs::down_left;
+                            new_evil_dir2 = dirs::right;
+                            new_evil_dir3 = dirs::down_right;
+                            break;
+                        }
+                        
+                        switch ((*evil)->GetType())
+                        {
+                        case types::ball:
+                            switch ((*evil)->size)
+                            {
+                            case sizes::big:
+                                (*evil)->Transform(sizes::middle);
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::middle);
+                                vEnemies.back()->SetDir(new_evil_dir1);
+                                break;
+
+                            case sizes::middle:
+                                (*evil)->Transform(sizes::small_ball);
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::small_ball);
+                                vEnemies.back()->SetDir(new_evil_dir1);
+                                break;
+
+                            case sizes::small_ball:
+                                (*evil)->Release();
+                                vEnemies.erase(evil);
+                                score += 50 + level;
+                                break;
+                            }
+                            break;
+
+                        case types::egg:
+                            switch ((*evil)->size)
+                            {
+                            case sizes::big:
+                                (*evil)->Transform(sizes::middle);
+                                
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::middle);
+                                vEnemies.back()->SetDir(new_evil_dir1);
+
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::middle);
+                                vEnemies.back()->SetDir(new_evil_dir2);
+
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::middle);
+                                vEnemies.back()->SetDir(new_evil_dir3);
+                                
+                                break;
+
+                            case sizes::middle:
+                                (*evil)->Transform(sizes::small_ball);
+                                
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::small_ball);
+                                vEnemies.back()->SetDir(new_evil_dir1);
+
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::small_ball);
+                                vEnemies.back()->SetDir(new_evil_dir2);
+                                
+                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.back()->Transform(sizes::small_ball);
+                                vEnemies.back()->SetDir(new_evil_dir3);
+                                break;
+
+                            case sizes::small_ball:
+                                (*evil)->Release();
+                                vEnemies.erase(evil);
+                                score += 100 + level;
+                                break;
+                            }
+                            break;
+                        }
+                        
+                        (*axe)->Release();
+                        vAxes.erase(axe);
+                        hurt = true;
+                        break;
+                    }
+                }
+                if (hurt)break;
+            }
+        }
 
 
         //DRAW THINGS *******************************************
