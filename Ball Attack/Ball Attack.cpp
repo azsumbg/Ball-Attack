@@ -135,11 +135,25 @@ ID2D1Bitmap* bmpSmallPurpleBall = nullptr;
 
 ID2D1Bitmap* bmpCatapultL[3] = { nullptr };
 ID2D1Bitmap* bmpCatapultR[3] = { nullptr };
+
+ID2D1Bitmap* bmpExplosion[24] = { nullptr };
 ///////////////////////////////////////////////////////////////////
+
+struct EXPLOSION
+{
+    float x = 0;
+    float y = 0;
+    float ex = 0;
+    float ey = 0;
+    int frame = 0;
+    types victim = types::no_type;
+};
 
 dll::Object Catapult = nullptr;
 std::vector<dll::Object> vEnemies;
 std::vector<dll::Object> vAxes;
+
+std::vector<EXPLOSION>vExplosions;
 
 ///////////////////////////////////////////////////////////////////
 
@@ -211,6 +225,8 @@ void ReleaseResources()
         if (!CleanMem(&bmpCatapultL[i]))ErrLog(L"Error releasing CatapultL");
     for (int i = 0; i < 3; i++)
         if (!CleanMem(&bmpCatapultR[i]))ErrLog(L"Error releasing CatapultR");
+    for (int i = 0; i < 24; i++)
+        if (!CleanMem(&bmpExplosion[i]))ErrLog(L"Error releasing Explosion");
 }
 void ErrExit(int error)
 {
@@ -237,7 +253,7 @@ void InitGame()
     score = 0;
     mins = 0;
     secs = 0;
-    intruders = 2 + level;
+    intruders = 1 + level;
 
     if (Catapult)
     {
@@ -256,6 +272,8 @@ void InitGame()
             vAxes[i]->Release();
     }
     vAxes.clear();
+
+    vExplosions.clear();
 
     Catapult = dll::Factory(types::catapult, scr_width / 2 - 100.0f, scr_height - 185.0f);
 }
@@ -855,6 +873,21 @@ void CreateResources()
         }
     }
 
+    for (int i = 0; i < 24; i++)
+    {
+        wchar_t name[50] = L".\\res\\img\\explosion\\";
+        wchar_t add[3] = L"\0";
+        wsprintf(add, L"%d", i);
+        wcscat_s(name, add);
+        wcscat_s(name, L".png");
+        bmpExplosion[i] = Load(name, Draw);
+        if (!bmpExplosion[i])
+        {
+            ErrLog(L"Error loading bmpExplosion");
+            ErrExit(eD2D);
+        }
+    }
+
     D2D1_RECT_F topR = { scr_width / 2 - 200.0f,-50.0f,scr_width,50.0f };
     D2D1_RECT_F bottomR = { scr_width / 2 - 150.0f,scr_height + 50.0f,scr_width,scr_height + 150.0f };
     bool top_ok = false;
@@ -963,8 +996,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (!vAxes.empty() && !vEnemies.empty())
         {
-           
-
             for (std::vector<dll::Object>::iterator evil = vEnemies.begin(); evil < vEnemies.end(); evil++)
             {
                 bool hurt = false;
@@ -978,6 +1009,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         dirs new_evil_dir1 = (*evil)->GetDir();
                         dirs new_evil_dir2 = (*evil)->GetDir();
                         dirs new_evil_dir3 = (*evil)->GetDir();
+
+                        float now_x = (*evil)->x;
+                        float now_y = (*evil)->y;
 
                         switch (new_evil_dir1)
                         {
@@ -1031,22 +1065,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             {
                             case sizes::big:
                                 (*evil)->Transform(sizes::middle);
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::ball, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir1);
                                 break;
 
                             case sizes::middle:
                                 (*evil)->Transform(sizes::small_ball);
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::ball, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::small_ball);
                                 vEnemies.back()->SetDir(new_evil_dir1);
                                 break;
 
                             case sizes::small_ball:
+                                vExplosions.push_back(EXPLOSION{ now_x,now_y,now_x + 100.0f,now_y + 114.0f,
+                                    0,types::ball });
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
                                 score += 50 + level;
+                                ++intruders;
                                 break;
                             }
                             break;
@@ -1057,15 +1094,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             case sizes::big:
                                 (*evil)->Transform(sizes::middle);
                                 
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir1);
 
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir2);
 
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir3);
                                 
@@ -1074,20 +1111,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             case sizes::middle:
                                 (*evil)->Transform(sizes::small_ball);
                                 
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::small_ball);
                                 vEnemies.back()->SetDir(new_evil_dir1);
 
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::small_ball);
                                 vEnemies.back()->SetDir(new_evil_dir2);
                                 
-                                vEnemies.push_back(dll::Factory(types::ball, (*evil)->ex, (*evil)->ey));
+                                vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::small_ball);
                                 vEnemies.back()->SetDir(new_evil_dir3);
                                 break;
 
                             case sizes::small_ball:
+                                vExplosions.push_back(EXPLOSION{ now_x,now_y,now_x + 100.0f,now_y + 114.0f,
+                                    0,types::ball });
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
                                 score += 100 + level;
@@ -1291,6 +1330,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (std::vector<dll::Object>::iterator axe = vAxes.begin(); axe < vAxes.end(); axe++)
                 Draw->DrawBitmap(bmpAxe, D2D1::RectF((*axe)->x, (*axe)->y, (*axe)->ex, (*axe)->ey));
         }
+
+        if (!vExplosions.empty())
+        {
+            for (int i = 0; i < vExplosions.size(); ++i)
+            {
+                Draw->DrawBitmap(bmpExplosion[vExplosions[i].frame], D2D1::RectF(vExplosions[i].x, vExplosions[i].y,
+                    vExplosions[i].ex, vExplosions[i].ey));
+                vExplosions[i].frame++;
+                if (vExplosions[i].frame > 23)vExplosions.erase(vExplosions.begin() + i);
+
+            }
+        }
+
+
 
         /////////////////////////////////////////////////////////////
         Draw->EndDraw();
