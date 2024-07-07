@@ -70,7 +70,7 @@ int level = 1;
 int mins = 0;
 int secs = 0;
 int score = 0;
-int lifes = 100;
+int lifes = 150;
 int intruders = 0;
 
 float target_x = 0;
@@ -92,6 +92,10 @@ ID2D1RadialGradientBrush* ButBckgBrush = nullptr;
 ID2D1SolidColorBrush* TxtBrush = nullptr;
 ID2D1SolidColorBrush* HgltBrush = nullptr;
 ID2D1SolidColorBrush* InactBrush = nullptr;
+
+ID2D1SolidColorBrush* LifeBrush = nullptr;
+ID2D1SolidColorBrush* HurtBrush = nullptr;
+ID2D1SolidColorBrush* DangerBrush = nullptr;
 
 IDWriteFactory* iWriteFactory = nullptr;
 IDWriteTextFormat* nrmText = nullptr;
@@ -180,7 +184,11 @@ void ReleaseResources()
     if (!CleanMem(&ButBckgBrush))ErrLog(L"Error releasing ButBckgBrush");
     if (!CleanMem(&TxtBrush))ErrLog(L"Error releasing TxtBrush");
     if (!CleanMem(&HgltBrush))ErrLog(L"Error releasing HgltBrush");
-    if (!CleanMem(&InactBrush))ErrLog(L"Error releasing InatBrush");
+    if (!CleanMem(&InactBrush))ErrLog(L"Error releasing InactBrush");
+    if (!CleanMem(&LifeBrush))ErrLog(L"Error releasing LifeBrush");
+    if (!CleanMem(&HurtBrush))ErrLog(L"Error releasing HurtBrush");
+    if (!CleanMem(&DangerBrush))ErrLog(L"Error releasing DangerBrush");
+    
     if (!CleanMem(&iWriteFactory))ErrLog(L"Error releasing iWriteFactory");
     if (!CleanMem(&nrmText))ErrLog(L"Error releasing nrmText");
     if (!CleanMem(&bigText))ErrLog(L"Error releasing bigText");
@@ -254,6 +262,7 @@ void InitGame()
     mins = 0;
     secs = 0;
     intruders = 1 + level;
+    lifes = 150;
 
     if (Catapult)
     {
@@ -490,11 +499,48 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         break;
 
     case WM_LBUTTONDOWN:
-        if (!now_shooting)
+        if (HIWORD(lParam) > 50)
         {
-            now_shooting = true;
-            target_x = LOWORD(lParam);
-            target_y = HIWORD(lParam);
+            if (!now_shooting)
+            {
+                now_shooting = true;
+                target_x = LOWORD(lParam);
+                target_y = HIWORD(lParam);
+                if (sound)mciSendString(L"play .\\res\\snd\\shoot.wav", NULL, NULL, NULL);
+            }
+        }
+        else
+        {
+            if (LOWORD(wParam) >= b1TxtR.left && LOWORD(lParam) <= b1TxtR.right)
+            {
+                if (name_set)
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                    break;
+                }
+                else
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                    if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
+                }
+                break;
+            }
+            if (LOWORD(wParam) >= b2TxtR.left && LOWORD(lParam) <= b2TxtR.right)
+            {
+                mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                if (sound)
+                {
+                    sound = false;
+                    PlaySound(NULL, NULL, NULL);
+                    break;
+                }
+                else
+                {
+                    sound = true;
+                    PlaySound(snd_file, NULL, SND_ASYNC | SND_LOOP);
+                    break;
+                }
+            }
         }
         break;
 
@@ -606,6 +652,9 @@ void CreateResources()
         hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkBlue), &TxtBrush);
         hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Yellow), &HgltBrush);
         hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkGray), &InactBrush);
+        hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Green), &LifeBrush);
+        hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Orange), &HurtBrush);
+        hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &DangerBrush);
 
         if (hr != S_OK)
         {
@@ -1068,6 +1117,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                 vEnemies.push_back(dll::Factory(types::ball, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir1);
+                                intruders++;
                                 break;
 
                             case sizes::middle:
@@ -1083,7 +1133,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
                                 score += 50 + level;
-                                ++intruders;
+                                if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                                 break;
                             }
                             break;
@@ -1093,7 +1143,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             {
                             case sizes::big:
                                 (*evil)->Transform(sizes::middle);
-                                
+                                intruders++;
                                 vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir1);
@@ -1105,7 +1155,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                 vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir3);
-                                
                                 break;
 
                             case sizes::middle:
@@ -1130,6 +1179,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
                                 score += 100 + level;
+                                if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                                 break;
                             }
                             break;
@@ -1142,6 +1192,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     }
                 }
                 if (hurt)break;
+            }
+        }
+
+        if (!vEnemies.empty() && Catapult)
+        {
+            for (std::vector<dll::Object>::iterator evil = vEnemies.begin(); evil < vEnemies.end(); ++evil)
+            {
+                if (!(Catapult->x > (*evil)->ex || Catapult->ex<(*evil)->x ||
+                    Catapult->y>(*evil)->ey || Catapult->ey < (*evil)->y))
+                {
+                    vExplosions.push_back(EXPLOSION{ (*evil)->x,(*evil)->y,(*evil)->x + 100.0f,
+                        (*evil)->y + 114.0f,0,types::ball });
+                    lifes -= 10 * level;
+
+                    if (lifes <= 0)
+                    {
+                        vExplosions.push_back(EXPLOSION{ (*evil)->x,(*evil)->y,(*evil)->x + 100.0f,
+                        (*evil)->y + 114.0f,0,types::catapult });
+                        if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                    }
+
+                    (*evil)->Release();
+                    vEnemies.erase(evil);
+
+                    break;
+                }
             }
         }
 
@@ -1175,6 +1251,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height - 100.0f));
         //////////////////////////////////////////////////////////
+
+        //STATUS ************************************************
+
+        if (Catapult && LifeBrush && HurtBrush && DangerBrush)
+        {
+            if (lifes >= 80)
+                Draw->DrawLine(D2D1::Point2F(Catapult->x - 20.0f, Catapult->ey + 5.0f),
+                    D2D1::Point2F(Catapult->x + (float)(lifes), Catapult->ey + 5.0f), LifeBrush, 10.0f);
+            else if (lifes >= 40)
+                Draw->DrawLine(D2D1::Point2F(Catapult->x - 20.0f, Catapult->ey + 5.0f),
+                    D2D1::Point2F(Catapult->x + (float)(lifes), Catapult->ey + 5.0f), HurtBrush, 10.0f);
+            else
+                Draw->DrawLine(D2D1::Point2F(Catapult->x - 20.0f, Catapult->ey + 5.0f),
+                    D2D1::Point2F(Catapult->x + (float)(lifes), Catapult->ey + 5.0f), DangerBrush, 10.0f);
+        }
+
+        wchar_t status[200] = L"КАПИТАН: ";
+        wchar_t add[5] = L"\0";
+        int txt_size = 0;
+
+
 
         // CATAPULT & EVILS ***************************************
 
@@ -1338,12 +1435,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 Draw->DrawBitmap(bmpExplosion[vExplosions[i].frame], D2D1::RectF(vExplosions[i].x, vExplosions[i].y,
                     vExplosions[i].ex, vExplosions[i].ey));
                 vExplosions[i].frame++;
-                if (vExplosions[i].frame > 23)vExplosions.erase(vExplosions.begin() + i);
-
+                if (vExplosions[i].frame > 23)
+                {
+                    if (vExplosions[i].victim == types::catapult)
+                    {
+                        Draw->EndDraw();
+                        Sleep(500);
+                        GameOver();
+                        break;
+                    }
+                    vExplosions.erase(vExplosions.begin() + i);
+                    break;
+                }
             }
         }
-
-
 
         /////////////////////////////////////////////////////////////
         Draw->EndDraw();
