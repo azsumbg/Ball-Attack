@@ -260,7 +260,7 @@ void InitGame()
     level = 1;
     score = 0;
     mins = 0;
-    secs = 0;
+    secs = 240;
     intruders = 1 + level;
     lifes = 150;
 
@@ -371,7 +371,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
     case WM_TIMER:
         if (pause)break;
-        secs++;
+        secs--;
         mins = secs / 60;
         break;
 
@@ -1117,7 +1117,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                 vEnemies.push_back(dll::Factory(types::ball, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir1);
-                                intruders++;
+                                if (intruders < 1 + level)intruders++;
                                 break;
 
                             case sizes::middle:
@@ -1143,7 +1143,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             {
                             case sizes::big:
                                 (*evil)->Transform(sizes::middle);
-                                intruders++;
+                                if (intruders < 1 + level)intruders++;
                                 vEnemies.push_back(dll::Factory(types::egg, now_x, now_y));
                                 vEnemies.back()->Transform(sizes::middle);
                                 vEnemies.back()->SetDir(new_evil_dir1);
@@ -1267,11 +1267,39 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     D2D1::Point2F(Catapult->x + (float)(lifes), Catapult->ey + 5.0f), DangerBrush, 10.0f);
         }
 
-        wchar_t status[200] = L"КАПИТАН: ";
-        wchar_t add[5] = L"\0";
-        int txt_size = 0;
+        if (TxtBrush && nrmText)
+        {
+            wchar_t status[200] = L"КАПИТАН: ";
+            wchar_t add[5] = L"\0";
+            int txt_size = 0;
 
+            wcscat_s(status, current_player);
 
+            wcscat_s(status, L", ВРЕМЕ: 0");
+            wsprintf(add, L"%d", mins);
+            wcscat_s(status, add);
+            wcscat_s(status, L" : ");
+
+            if (secs - mins * 60 < 10) wcscat_s(status, L"0");
+            wsprintf(add, L"%d", secs - mins * 60);
+            wcscat_s(status, add);
+
+            wcscat_s(status, L", НИВО: ");
+            wsprintf(add, L"%d", level);
+            wcscat_s(status, add);
+
+            wcscat_s(status, L", РЕЗУЛТАТ: ");
+            wsprintf(add, L"%d", score);
+            wcscat_s(status, add);
+
+            for (int i = 0; i < 200; ++i)
+            {
+                if (status[i] != '\0')txt_size++;
+                else break;
+            }
+        
+            Draw->DrawTextW(status, txt_size, nrmText, D2D1::RectF(10.0f, scr_height - 70.0f, scr_width, scr_height), TxtBrush);
+        }
 
         // CATAPULT & EVILS ***************************************
 
