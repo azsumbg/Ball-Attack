@@ -287,6 +287,59 @@ void InitGame()
     Catapult = dll::Factory(types::catapult, scr_width / 2 - 100.0f, scr_height - 185.0f);
 }
 
+void NextLevel()
+{
+    if (sound)mciSendString(L"play .\\res\\snd\\levelup.wav", NULL, NULL, NULL);
+
+    int control = 0;
+    int repeat_count = 0;
+    
+    if (bigText && TxtBrush)
+    {
+        while (repeat_count <= 5)
+        {
+            Draw->BeginDraw();
+            Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
+            if (control % 10 == 0)
+            {
+                repeat_count++;
+                Draw->DrawTextW(L"НИВОТО ПРЕМИНАТО !", 19, bigText, D2D1::RectF(300.0f, scr_height / 2 - 100.0f,
+                    scr_width, scr_height), TxtBrush);
+                Draw->EndDraw();
+                Sleep(250);
+            }
+            control++;
+            Draw->EndDraw();
+        }
+    }
+
+    level++;
+    secs = 240;
+    intruders = 1 + level;
+
+    if (Catapult)
+    {
+        Catapult->Release();
+        Catapult = nullptr;
+    }
+    if (!vEnemies.empty())
+    {
+        for (int i = 0; i < vEnemies.size(); i++)
+            vEnemies[i]->Release();
+    }
+    vEnemies.clear();
+    if (!vAxes.empty())
+    {
+        for (int i = 0; i < vAxes.size(); i++)
+            vAxes[i]->Release();
+    }
+    vAxes.clear();
+
+    vExplosions.clear();
+
+    Catapult = dll::Factory(types::catapult, scr_width / 2 - 100.0f, scr_height - 185.0f);
+}
+
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (ReceivedMsg)
@@ -373,6 +426,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         if (pause)break;
         secs--;
         mins = secs / 60;
+        if (secs <= 0)
+        {
+            pause = true;
+            NextLevel();
+            pause = false;
+        }
         break;
 
     case WM_SETCURSOR:
@@ -487,7 +546,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 pause = false;
                 break;
             }
-            InitGame();
+            NextLevel();
             break;
 
         case mExit:
@@ -674,7 +733,7 @@ void CreateResources()
     if (iWriteFactory)
     {
         hr = iWriteFactory->CreateTextFormat(L"GABRIOLA", NULL, DWRITE_FONT_WEIGHT_BLACK,
-            DWRITE_FONT_STYLE_OBLIQUE, DWRITE_FONT_STRETCH_NORMAL, 20, L"", &nrmText);
+            DWRITE_FONT_STYLE_OBLIQUE, DWRITE_FONT_STRETCH_NORMAL, 28, L"", &nrmText);
         if (hr != S_OK)
         {
             ErrLog(L"Error creating nrmTextFormat");
@@ -1010,7 +1069,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (intruders > 0)
         {
-            if (rand() % 300 == 66)
+            if (rand() % 500 == 66)
             {
                 if (rand() % 2 == 0)
                     vEnemies.push_back(dll::Factory(types::ball, (float)(rand() % (int)(scr_width - 80)), 60.0f));
