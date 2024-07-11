@@ -27,7 +27,7 @@
 #define record_file L".\\res\\data\\record.dat"
 #define save_file L".\\res\\data\\save.dat"
 #define help_file L".\\res\\data\\help.dat"
-#define snd_file L".\\res\\snd\\sound.dat"
+#define snd_file L".\\res\\snd\\main.wav"
 
 #define mNew 1001
 #define mLevel 1002
@@ -247,11 +247,73 @@ void ErrExit(int error)
     std::remove(tmp_file);
     exit(1);
 }
+BOOL CheckRecord()
+{
+    if (score < 1)return no_record;
 
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; i++)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return first_record;
+    }
+
+    std::wifstream check(record_file);
+    check >> result;
+    check.close();
+
+    if (result < score)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; i++)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return record;
+    }
+
+    return no_record;
+}
 void GameOver()
 {
     PlaySound(NULL, NULL, NULL);
     KillTimer(bHwnd, bTimer);
+
+    wchar_t final_txt[31] = L"ИЗВЪНЗЕМНИТЕ ЗАВЛАДЯХА СВЕТА !";
+    int size = 31;
+
+    switch (CheckRecord())
+    {
+    case no_record:
+        if (sound)PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_ASYNC);
+        break;
+
+    case first_record:
+        if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+        wcscpy_s(final_txt, L"ПЪРВИ РЕКОРД НА ИГРАТА !");
+        size = 25;
+        break;
+        
+    case record:
+        if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+        wcscpy_s(final_txt, L"СВЕТОВЕН РЕКОРД НА ИГРАТА !");
+        size = 28;
+        break;
+
+    }
+
+    if (bigText && TxtBrush)
+    {
+        Draw->BeginDraw();
+        Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
+        Draw->DrawTextW(final_txt, size, bigText, D2D1::RectF(50.0f, scr_height / 2 - 100.0f,
+            scr_width, scr_height), TxtBrush);
+        Draw->EndDraw();
+    }
+    Sleep(6800);
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -284,7 +346,11 @@ void InitGame()
             vAxes[i]->Release();
     }
     vAxes.clear();
-    if (ToolSet)delete ToolSet;
+    if (ToolSet)
+    {
+        delete ToolSet;
+        ToolSet = nullptr;
+    }
 
     vExplosions.clear();
 
@@ -292,7 +358,55 @@ void InitGame()
 
 
 }
+void HallofFame()
+{
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Все още няма рекорд на играта !\n\nПостарай се повече !",
+            L"Липсва файл", MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
 
+    wchar_t record_txt[100] = L"НАЙ-ВЕЛИК ГЕРОЙ: ";
+    wchar_t saved_player[16] = L"\0";
+    wchar_t add[5] = L"\0";
+    int size = 0;
+
+    std::wifstream rec(record_file);
+    rec >> result;
+    for (int i = 0; i < 16; i++)
+    {
+        int letter = 0;
+        rec >> letter;
+        saved_player[i] = static_cast<wchar_t>(letter);
+    }
+    rec.close();
+
+    wcscat_s(record_txt, saved_player);
+    wcscat_s(record_txt, L"\nСВЕТОВЕН РЕКОРД: ");
+    wsprintf(add, L"%d", result);
+    wcscat_s(record_txt, add);
+
+    for (int i = 0; i < 100; i++)
+    {
+        if (record_txt[i] != '\0')size++;
+        else break;
+    }
+    
+    if (sound)mciSendString(L"play .\\res\\snd\\showrec.wav", NULL, NULL, NULL);
+    if (bigText && TxtBrush)
+    {
+        Draw->BeginDraw();
+        Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
+        Draw->DrawTextW(record_txt, size, bigText, D2D1::RectF(50.0f, scr_height / 2 - 100.0f,
+            scr_width, scr_height), TxtBrush);
+        Draw->EndDraw();
+    }
+    Sleep(4000);
+}
 void NextLevel()
 {
     if (sound)mciSendString(L"play .\\res\\snd\\levelup.wav", NULL, NULL, NULL);
@@ -340,11 +454,207 @@ void NextLevel()
             vAxes[i]->Release();
     }
     vAxes.clear();
-    if (ToolSet)delete ToolSet;
+    if (ToolSet)
+    {
+        delete ToolSet;
+        ToolSet = nullptr;
+    }
 
     vExplosions.clear();
 
     Catapult = dll::Factory(types::catapult, scr_width / 2 - 100.0f, scr_height - 185.0f);
+}
+void SaveGame()
+{
+    int result = 0;
+
+    CheckFile(save_file, &result);
+    if (result == FILE_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONEXCLAMATION);
+        if (MessageBox(bHwnd, L"Съществува предишна записана игра !\n\nДа я презапиша ли ?",
+            L"Презапис !", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)
+        {
+            pause = false;
+            return;
+        }
+    }
+
+    std::wofstream save(save_file);
+
+    save << score << std::endl;
+    save << level << std::endl;
+    save << secs << std::endl;
+    save << intruders << std::endl;
+    save << lifes << std::endl;
+    for (int i = 0; i < 16; i++)save << static_cast<int>(current_player[i]) << std::endl;
+    save << name_set << std::endl;
+
+    if(!Catapult)save << -1 << std::endl;
+    else save << Catapult->x << std::endl;
+
+    save << vEnemies.size() << std::endl;
+    if (vEnemies.size() > 0)
+    {
+        for (int i = 0; i < vEnemies.size(); i++)
+        {
+            save << vEnemies[i]->x << std::endl;
+            save << vEnemies[i]->y << std::endl;
+            save << static_cast<int>(vEnemies[i]->GetType()) << std::endl;
+            save << static_cast<int>(vEnemies[i]->size) << std::endl;
+        }
+    }
+
+    save.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL); 
+    MessageBox(bHwnd, L"Играта е запазена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+    int result = 0;
+
+    CheckFile(save_file, &result);
+    if (result == FILE_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONEXCLAMATION);
+        if (MessageBox(bHwnd, L"Ако продължиш, ще загубиш тази игра !\n\nДа я презапиша ли ?",
+            L"Презапис !", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)
+        {
+            pause = false;
+            return;
+        }
+    }
+    else
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !",
+            L"Липсва файл", MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    if (Catapult)
+    {
+        Catapult->Release();
+        Catapult = nullptr;
+    }
+    if (!vEnemies.empty())
+    {
+        for (int i = 0; i < vEnemies.size(); i++)
+            vEnemies[i]->Release();
+    }
+    vEnemies.clear();
+    if (!vAxes.empty())
+    {
+        for (int i = 0; i < vAxes.size(); i++)
+            vAxes[i]->Release();
+    }
+    vAxes.clear();
+    if (ToolSet)
+    {
+        delete ToolSet;
+        ToolSet = nullptr;
+    }
+    
+    vExplosions.clear();
+
+    std::wifstream save(save_file);
+
+    save >> score;
+    save >> level;
+    save >> secs;
+    save >> intruders;
+    save >> lifes;
+    for (int i = 0; i < 16; i++)
+    {
+        int letter = 0;
+        save >> letter; 
+        current_player[i] = static_cast<wchar_t>(letter);
+    }
+    save >> name_set;
+
+    float temp_x = 0;
+    
+    save >> temp_x;
+    if (temp_x >= 0)Catapult = dll::Factory(types::catapult, temp_x, scr_height - 185.0f);
+    
+    save >> result;
+    if (result > 0)
+    {
+        for (int i = 0; i < result; i++)
+        {
+            float ax = 0;
+            float ay = 0;
+            int atype = -1;
+            int asize = -1;
+
+            save >> ax;
+            save >> ay;
+            save >> atype;
+            save >> asize;
+
+            vEnemies.push_back(dll::Factory(static_cast<types>(atype), ax, ay));
+            if (static_cast<sizes>(asize) != sizes::big)vEnemies.back()->Transform(static_cast<sizes>(asize));
+        }
+    }
+
+    save.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+    MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void ShowHelp()
+{
+    int result = 0;
+    CheckFile(help_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Няма налична помощ за играта !\n\nСвържете се с разработчика !",
+            L"Липсва файл", MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    wchar_t help_txt[1000] = L"\0";
+    
+    std::wifstream rec(help_file);
+    rec >> result;
+    for (int i = 0; i < result; i++)
+    {
+        int letter = 0;
+        rec >> letter;
+        help_txt[i] = static_cast<wchar_t>(letter);
+    }
+    rec.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\\help.wav", NULL, NULL, NULL);
+
+    if (Draw && nrmText && TxtBrush && InactBrush && HgltBrush && ButBckgBrush)
+    {
+        Draw->BeginDraw();
+        Draw->Clear(D2D1::ColorF(D2D1::ColorF::Azure));
+        Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), ButBckgBrush);
+        if (name_set)
+            Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmText, b1TxtR, InactBrush);
+        else
+        {
+            if (b1Hglt)
+                Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmText, b1TxtR, HgltBrush);
+            else
+                Draw->DrawTextW(L"ИМЕ НА ИГРАЧ", 13, nrmText, b1TxtR, TxtBrush);
+        }
+        if (b2Hglt)
+            Draw->DrawTextW(L"ЗВУЦИ ON /OFF", 14, nrmText, b2TxtR, HgltBrush);
+        else
+            Draw->DrawTextW(L"ЗВУЦИ ON /OFF", 14, nrmText, b2TxtR, TxtBrush);
+        if (b3Hglt)
+            Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtR, HgltBrush);
+        else
+            Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, nrmText, b3TxtR, TxtBrush);
+
+        Draw->DrawTextW(help_txt, result, nrmText, D2D1::RectF(150.0f, 100.0f, scr_width, scr_height), TxtBrush);
+        Draw->EndDraw();
+    }
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -560,7 +870,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
             break;
 
+        case mSave:
+            pause = true;
+            SaveGame();
+            pause = false;
+            break;
 
+        case mLoad:
+            pause = true;
+            LoadGame();
+            pause = false;
+            break;
+
+        case mHoF:
+            pause = true;
+            HallofFame();
+            pause = false;
+            break;
         }
         break;
 
@@ -577,7 +903,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         }
         else
         {
-            if (LOWORD(wParam) >= b1TxtR.left && LOWORD(lParam) <= b1TxtR.right)
+            if (LOWORD(lParam) >= b1TxtR.left && LOWORD(lParam) <= b1TxtR.right)
             {
                 if (name_set)
                 {
@@ -591,7 +917,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 }
                 break;
             }
-            if (LOWORD(wParam) >= b2TxtR.left && LOWORD(lParam) <= b2TxtR.right)
+            if (LOWORD(lParam) >= b2TxtR.left && LOWORD(lParam) <= b2TxtR.right)
             {
                 mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
                 if (sound)
@@ -604,6 +930,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 {
                     sound = true;
                     PlaySound(snd_file, NULL, SND_ASYNC | SND_LOOP);
+                    break;
+                }
+            }
+            if (LOWORD(lParam) >= b3TxtR.left && LOWORD(lParam) <= b3TxtR.right)
+            {
+                if(sound) mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                if (!show_help)
+                {
+                    show_help = true;
+                    pause = true;
+                    ShowHelp();
+                    break;
+                }
+                else
+                {
+                    show_help = false;
+                    pause = false;
                     break;
                 }
             }
@@ -1055,6 +1398,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
     CreateResources();
 
+    PlaySound(NULL, NULL, NULL);
+    PlaySound(snd_file, NULL, SND_ASYNC | SND_LOOP);
+
     while (bMsg.message != WM_QUIT)
     {
         if ((bRet = PeekMessage(&bMsg, bHwnd, NULL, NULL, PM_REMOVE)) != 0)
@@ -1126,7 +1472,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     if (!((*axe)->x >= (*evil)->ex || (*axe)->ex <= (*evil)->x
                         || (*axe)->y >= (*evil)->ey || (*axe)->ey <= (*evil)->y))
                     {
-                        score += 10 * level;
+                        score +=  level;
                         
                         dirs new_evil_dir1 = (*evil)->GetDir();
                         dirs new_evil_dir2 = (*evil)->GetDir();
@@ -1207,7 +1553,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                     ToolSet = new dll::ATOM(now_x, now_y - 50.0f, 60.0f, 54.0f);
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
-                                score += 50 + level;
+                                score += 10 + level;
                                 if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                                 break;
                             }
@@ -1255,7 +1601,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                                     ToolSet = new dll::ATOM(now_x, now_y - 50.0f, 60.0f, 54.0f);
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
-                                score += 100 + level;
+                                score += 20 + level;
                                 if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                                 break;
                             }
@@ -1279,15 +1625,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (!(Catapult->x > (*evil)->ex || Catapult->ex<(*evil)->x ||
                     Catapult->y>(*evil)->ey || Catapult->ey < (*evil)->y))
                 {
+                    if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                     vExplosions.push_back(EXPLOSION{ (*evil)->x,(*evil)->y,(*evil)->x + 100.0f,
                         (*evil)->y + 114.0f,0,types::ball });
                     lifes -= 10 * level;
 
                     if (lifes <= 0)
                     {
-                        vExplosions.push_back(EXPLOSION{ (*evil)->x,(*evil)->y,(*evil)->x + 100.0f,
-                        (*evil)->y + 114.0f,0,types::catapult });
+                        vExplosions.push_back(EXPLOSION{ Catapult->x,Catapult->y,Catapult->x + 100.0f,
+                        Catapult->y + 114.0f,0,types::catapult });
                         if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                        Catapult->Release();
+                        Catapult = nullptr;
                     }
                     if (intruders < 1 + level)intruders++;
                     (*evil)->Release();
@@ -1314,11 +1663,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             if (!(ToolSet->x >= Catapult->ex || ToolSet->ex <= Catapult->x
                 || ToolSet->y >= Catapult->ey || ToolSet->ey <= Catapult->y))
             {
+                if (sound)mciSendString(L"play .\\res\\snd\\life.wav", NULL, NULL, NULL);
                 delete ToolSet;
                 ToolSet = nullptr;
                 if (lifes < 150)
                 {
-                    if (sound)mciSendString(L"play .\\res\\snd\\life.wav", NULL, NULL, NULL);
                     if (lifes + 50 <= 150)lifes += 50;
                     else lifes = 150;
                 }
@@ -1374,7 +1723,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         if (TxtBrush && nrmText)
         {
             wchar_t status[200] = L"КАПИТАН: ";
-            wchar_t add[5] = L"\0";
+            wchar_t add[8] = L"\0";
             int txt_size = 0;
 
             wcscat_s(status, current_player);
