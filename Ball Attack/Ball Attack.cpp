@@ -136,6 +136,7 @@ ID2D1Bitmap* bmpSmallRedBall = nullptr;
 ID2D1Bitmap* bmpSmallGreenBall = nullptr;
 ID2D1Bitmap* bmpSmallYellowBall = nullptr;
 ID2D1Bitmap* bmpSmallPurpleBall = nullptr;
+ID2D1Bitmap* bmpTools = nullptr;
 
 ID2D1Bitmap* bmpCatapultL[3] = { nullptr };
 ID2D1Bitmap* bmpCatapultR[3] = { nullptr };
@@ -159,6 +160,7 @@ std::vector<dll::Object> vAxes;
 
 std::vector<EXPLOSION>vExplosions;
 
+dll::ATOM* ToolSet = nullptr;
 ///////////////////////////////////////////////////////////////////
 
 template<typename GARBAGE> bool CleanMem(GARBAGE** what)
@@ -228,6 +230,7 @@ void ReleaseResources()
     if (!CleanMem(&bmpSmallGreenBall))ErrLog(L"Error releasing bmpSmallGreenBall");
     if (!CleanMem(&bmpSmallYellowBall))ErrLog(L"Error releasing bmpSmallYellowBall");
     if (!CleanMem(&bmpSmallPurpleBall))ErrLog(L"Error releasing bmpSmallPurpleBall");
+    if (!CleanMem(&bmpTools))ErrLog(L"Error releasing bmpTools");
 
     for (int i = 0; i < 3; i++)
         if (!CleanMem(&bmpCatapultL[i]))ErrLog(L"Error releasing CatapultL");
@@ -281,10 +284,13 @@ void InitGame()
             vAxes[i]->Release();
     }
     vAxes.clear();
+    if (ToolSet)delete ToolSet;
 
     vExplosions.clear();
 
     Catapult = dll::Factory(types::catapult, scr_width / 2 - 100.0f, scr_height - 185.0f);
+
+
 }
 
 void NextLevel()
@@ -334,6 +340,7 @@ void NextLevel()
             vAxes[i]->Release();
     }
     vAxes.clear();
+    if (ToolSet)delete ToolSet;
 
     vExplosions.clear();
 
@@ -763,6 +770,13 @@ void CreateResources()
         ErrExit(eD2D);
     }
 
+    bmpTools = Load(L".\\res\\img\\tools.png", Draw);
+    if (!bmpTools)
+    {
+        ErrLog(L"Error loading bmpTools");
+        ErrExit(eD2D);
+    }
+
     bmpBlueBall = Load(L".\\res\\img\\balls\\BallBlue.png", Draw);
     if (!bmpBlueBall)
     {
@@ -1069,7 +1083,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (intruders > 0)
         {
-            if (rand() % 500 == 66)
+            if (rand() % 250 == 66)
             {
                 if (rand() % 2 == 0)
                     vEnemies.push_back(dll::Factory(types::ball, (float)(rand() % (int)(scr_width - 80)), 60.0f));
@@ -1189,6 +1203,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             case sizes::small_ball:
                                 vExplosions.push_back(EXPLOSION{ now_x,now_y,now_x + 100.0f,now_y + 114.0f,
                                     0,types::ball });
+                                if (rand() % 15 == 1 && !ToolSet)
+                                    ToolSet = new dll::ATOM(now_x, now_y - 50.0f, 60.0f, 54.0f);
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
                                 score += 50 + level;
@@ -1235,6 +1251,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             case sizes::small_ball:
                                 vExplosions.push_back(EXPLOSION{ now_x,now_y,now_x + 100.0f,now_y + 114.0f,
                                     0,types::ball });
+                                if (rand() % 15 == 1 && !ToolSet)
+                                    ToolSet = new dll::ATOM(now_x, now_y - 50.0f, 60.0f, 54.0f);
                                 (*evil)->Release();
                                 vEnemies.erase(evil);
                                 score += 100 + level;
@@ -1271,7 +1289,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         (*evil)->y + 114.0f,0,types::catapult });
                         if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
                     }
-
+                    if (intruders < 1 + level)intruders++;
                     (*evil)->Release();
                     vEnemies.erase(evil);
 
@@ -1280,6 +1298,33 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (ToolSet)
+        {
+            ToolSet->y += level * 0.5f;
+            ToolSet->SetEdges();
+            if (ToolSet->ey >= scr_height - 100.0f)
+            {
+                delete ToolSet;
+                ToolSet = nullptr;
+            }
+        }
+
+        if (ToolSet && Catapult)
+        {
+            if (!(ToolSet->x >= Catapult->ex || ToolSet->ex <= Catapult->x
+                || ToolSet->y >= Catapult->ey || ToolSet->ey <= Catapult->y))
+            {
+                delete ToolSet;
+                ToolSet = nullptr;
+                if (lifes < 150)
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\life.wav", NULL, NULL, NULL);
+                    if (lifes + 50 <= 150)lifes += 50;
+                    else lifes = 150;
+                }
+                else score += 50;
+            }
+        }
 
         //DRAW THINGS *******************************************
 
@@ -1537,6 +1582,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (ToolSet)
+            Draw->DrawBitmap(bmpTools, D2D1::RectF(ToolSet->x, ToolSet->y, ToolSet->ex, ToolSet->ey));
         /////////////////////////////////////////////////////////////
         Draw->EndDraw();
 
